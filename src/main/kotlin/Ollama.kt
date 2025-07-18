@@ -62,25 +62,22 @@ class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = fal
                 )
             )
         }
+
         return flow {
             var generatedText = ""
             val channel: ByteReadChannel = response.bodyAsChannel()
-            try {
-                while (true) {
-                    if (channel.availableForRead > 0) {
-                        val response = channel.readUTF8Line()?.toGenerateResponse()
-                        if (response != null) {
-                            generatedText += response.response
-                            emit(response.response)
-                        }
+            while (true) {
+                if (channel.availableForRead > 0) {
+                    val response = channel.readUTF8Line()?.toGenerateResponse()
+                    if (response != null) {
+                        generatedText += response.response
+                        emit(response.response)
                     }
-                    if (channel.isClosedForRead) break
-                    delay(50) // A small delay to prevent tight looping
                 }
-                onFinish(generatedText)
-            } catch (_: Exception) {
-                // Handle specific exceptions here
+                if (channel.isClosedForRead) break
+                delay(50) // A small delay to prevent tight looping
             }
+            onFinish(generatedText)
         }
     }
 
@@ -109,24 +106,20 @@ class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = fal
         return flow {
             var generatedText = ""
             val channel: ByteReadChannel = response.bodyAsChannel()
-            try {
-                while (true) {
-                    if (channel.availableForRead > 0) {
-                        val chatResponse = channel.readUTF8Line()?.toChatResponse()
-                        if (chatResponse != null) {
-                            generatedText += chatResponse.message.content
-                            emit(chatResponse.message.content)
-                        }
+            while (true) {
+                if (channel.availableForRead > 0) {
+                    val chatResponse = channel.readUTF8Line()?.toChatResponse()
+                    if (chatResponse != null) {
+                        generatedText += chatResponse.message.content
+                        emit(chatResponse.message.content)
                     }
-                    if (channel.isClosedForRead) break
-                    delay(50) // A small delay to prevent tight looping
                 }
-                val newMessages = messages.toMutableList()
-                newMessages.add(Message(Role.SYSTEM, generatedText))
-                onFinish(newMessages)
-            } catch (_: Exception) {
-                // Handle specific exceptions here
+                if (channel.isClosedForRead) break
+                delay(50) // A small delay to prevent tight looping
             }
+            val newMessages = messages.toMutableList()
+            newMessages.add(Message(Role.SYSTEM, generatedText))
+            onFinish(newMessages)
         }
     }
 
@@ -135,7 +128,7 @@ class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = fal
      * @return The embedding of the prompt
      */
     @OptIn(InternalAPI::class)
-    suspend fun embedding(prompt: String): Embedding?{
+    suspend fun embedding(prompt: String): Embedding {
         if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
@@ -151,30 +144,14 @@ class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = fal
             )
         }
 
-        val channel: ByteReadChannel = response.bodyAsChannel()
-        var ret = Embedding(listOf())
-        try {
-            while (true) {
-                if (channel.availableForRead > 0) {
-                    val embedding = channel.readUTF8Line()?.toEmbedding()
-                    if (embedding != null) {
-                        ret = embedding
-                    }
-                }
-                if (channel.isClosedForRead) break
-                delay(50) // A small delay to prevent tight looping
-            }
-        } catch (_: Exception) {
-            // Handle specific exceptions here
-        }
-        return ret
+        return response.bodyAsText().toEmbedding()
     }
 
     /**
      * @return The list of available models
      */
     @OptIn(InternalAPI::class)
-    suspend fun listModels(): Models{
+    suspend fun listModels(): Models {
         if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
@@ -182,23 +159,7 @@ class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = fal
             contentType(ContentType.Application.Json)
         }
 
-        val channel: ByteReadChannel = response.bodyAsChannel()
-        var ret = Models(listOf())
-        try {
-            while (true) {
-                if (channel.availableForRead > 0) {
-                    val models = channel.readUTF8Line()?.toModels()
-                    if (models != null) {
-                        ret = models
-                    }
-                }
-                if (channel.isClosedForRead) break
-                delay(50) // A small delay to prevent tight looping
-            }
-        } catch (_: Exception) {
-            // Handle specific exceptions here
-        }
-        return ret
+        return response.bodyAsText().toModels()
     }
 }
 

@@ -74,7 +74,7 @@ data class Model(
 data class ModelDetail(
     val format: String,
     val family: String,
-    val families: String?,
+    val families: List<String>?,
     val parameter_size: String,
     val quantization_level: String
 )
