@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.ExperimentalSerializationApi
 
 @Suppress("unused")
-class Ollama(host: String = "localhost", port: Int = 11434, ssl: Boolean = false, val model: String = "llama2") {
+class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = false, val model: String = "llama2") {
 
     /**
      * State of the Ollama Server.
