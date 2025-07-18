@@ -6,7 +6,6 @@ import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.util.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -14,18 +13,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
-class Ollama(val host: String = "localhost", val port: Int = 11434, val model: String = "llama2") {
+@Suppress("unused")
+class Ollama(host: String = "localhost", port: Int = 11434, ssl: Boolean = false, val model: String = "llama2") {
 
     /**
-     * State of the Llama Server.
+     * State of the Ollama Server.
      */
-    private val _currentState = MutableStateFlow<LLMSTATE>(LLMSTATE.WAITING)
-    val currentState: StateFlow<LLMSTATE> = _currentState
+    private val _currentState = MutableStateFlow(LLMState.WAITING)
+    val currentState: StateFlow<LLMState> = _currentState
+
+    private val _url = "http${if (ssl) "s" else ""}://$host:$port/api"
 
     /**
      * Ktor Client with Timeout will be used by all Requests
@@ -43,16 +41,16 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
     Flow will be empty until the server responds
     Flow will be closed when the server closes the connection
     Flow will be cancelled when the coroutine scope is cancelled
-    @param prompt: The prompt to send to the server
-    @param onFinish: A callback that will be called when the server closes the connection with the whole generated text
+    @param prompt The prompt to send to the server
+    @param onFinish A callback that will be called when the server closes the connection with the whole generated text
     @return A Flow of generated Tokens from the server
      */
     @OptIn(InternalAPI::class, ExperimentalSerializationApi::class)
     suspend fun generate(prompt: String, onFinish: (String) -> Unit = {}): Flow<String> {
-        if (_currentState.value == LLMSTATE.RUNNING) {
+        if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
-        val response: HttpResponse = client.post("http://$host:$port/api/generate") {
+        val response: HttpResponse = client.post("$_url/generate") {
             contentType(ContentType.Application.Json)
             setBody(
                 json.encodeToString(
@@ -66,7 +64,7 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
         }
         return flow {
             var generatedText = ""
-            val channel: ByteReadChannel = response.content
+            val channel: ByteReadChannel = response.bodyAsChannel()
             try {
                 while (true) {
                     if (channel.availableForRead > 0) {
@@ -87,16 +85,16 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
     }
 
     /**
-     * @param messages: history of messages latest message should be from the user
-     * @param onFinish: Callback when Generation is finished. Will be called with the new messages history where the last entry is the most recent response form the server
+     * @param messages history of messages latest message should be from the user
+     * @param onFinish Callback when Generation is finished. Will be called with the new messages history where the last entry is the most recent response form the server
      * @return A Flow of generated Tokens from the server
      */
     @OptIn(InternalAPI::class)
     suspend fun chat(messages: List<Message>, onFinish: (List<Message>) -> Unit = {}): Flow<String> {
-        if (_currentState.value == LLMSTATE.RUNNING) {
+        if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
-        val response: HttpResponse = client.post("http://$host:$port/api/chat") {
+        val response: HttpResponse = client.post("$_url/chat") {
             contentType(ContentType.Application.Json)
             setBody(
                 json.encodeToString(
@@ -110,7 +108,7 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
 
         return flow {
             var generatedText = ""
-            val channel: ByteReadChannel = response.content
+            val channel: ByteReadChannel = response.bodyAsChannel()
             try {
                 while (true) {
                     if (channel.availableForRead > 0) {
@@ -133,15 +131,15 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
     }
 
     /**
-     * @param prompt: The prompt to generate the embedding for
+     * @param prompt The prompt to generate the embedding for
      * @return The embedding of the prompt
      */
     @OptIn(InternalAPI::class)
     suspend fun embedding(prompt: String): Embedding?{
-        if (_currentState.value == LLMSTATE.RUNNING) {
+        if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
-        val response: HttpResponse = client.post("http://$host:$port/api/embeddings") {
+        val response: HttpResponse = client.post("$_url/embeddings") {
             contentType(ContentType.Application.Json)
             setBody(
                 json.encodeToString(
@@ -153,7 +151,7 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
             )
         }
 
-        val channel: ByteReadChannel = response.content
+        val channel: ByteReadChannel = response.bodyAsChannel()
         var ret = Embedding(listOf())
         try {
             while (true) {
@@ -177,14 +175,14 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
      */
     @OptIn(InternalAPI::class)
     suspend fun listModels(): Models{
-        if (_currentState.value == LLMSTATE.RUNNING) {
+        if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
-        val response: HttpResponse = client.get("http://$host:$port/api/tags") {
+        val response: HttpResponse = client.get("$_url/tags") {
             contentType(ContentType.Application.Json)
         }
 
-        val channel: ByteReadChannel = response.content
+        val channel: ByteReadChannel = response.bodyAsChannel()
         var ret = Models(listOf())
         try {
             while (true) {
@@ -208,7 +206,7 @@ class Ollama(val host: String = "localhost", val port: Int = 11434, val model: S
 /**
  * State Class for the Llama Server
  */
-enum class LLMSTATE {
+enum class LLMState {
     WAITING,
     RUNNING
 }
