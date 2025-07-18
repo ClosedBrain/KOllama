@@ -1,9 +1,10 @@
+@file:Suppress("PropertyName")
 package de.jackBeBack.data
 
-import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
+
 
 @Serializable
 data class CompletionRequest(val model: String, val prompt: String, val system: String)
@@ -47,6 +48,7 @@ data class Message(
     val images: List<String>? = null
 )
 
+@Suppress("unused")
 @Serializable
 enum class Role {
     @SerialName("user") USER,
