@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.ExperimentalSerializationApi
 
 @Suppress("unused")
-open class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = false, val model: String = "llama2") {
+class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean = false, val model: String = "llama2"): IOllama {
 
     /**
      * State of the Ollama Server.
@@ -46,7 +46,7 @@ open class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean 
     @return A Flow of generated Tokens from the server
      */
     @OptIn(InternalAPI::class, ExperimentalSerializationApi::class)
-    suspend fun generate(prompt: String, onFinish: (String) -> Unit = {}): Flow<String> {
+    override suspend fun generate(prompt: String, onFinish: (String) -> Unit): Flow<String> {
         if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
@@ -87,7 +87,7 @@ open class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean 
      * @return A Flow of generated Tokens from the server
      */
     @OptIn(InternalAPI::class)
-    suspend fun chat(messages: List<Message>, onFinish: (List<Message>) -> Unit = {}): Flow<String> {
+    override suspend fun chat(messages: List<Message>, onFinish: (List<Message>) -> Unit): Flow<String> {
         if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
@@ -128,7 +128,7 @@ open class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean 
      * @return The embedding of the prompt
      */
     @OptIn(InternalAPI::class)
-    suspend fun embedding(prompt: String): Embedding {
+    override suspend fun embedding(prompt: String): Embedding {
         if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }
@@ -151,7 +151,7 @@ open class Ollama(host: String = "localhost", port: Short = 11434, ssl: Boolean 
      * @return The list of available models
      */
     @OptIn(InternalAPI::class)
-    suspend fun listModels(): Models {
+    override suspend fun listModels(): Models {
         if (_currentState.value == LLMState.RUNNING) {
             throw Exception("Already running")
         }

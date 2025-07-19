@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.closedbrain"
-version = "1.0.4"
+version = "1.0.5"
 description = "A slightly modified version of the awesome kotlin wrapper made by JackBeBack."
 
 repositories {
